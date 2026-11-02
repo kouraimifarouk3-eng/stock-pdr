@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock PDR</title>
+<style>
+:root{--bg:#eceff2;--card:#fff;--ink:#14202b;--mute:#5b6773;--line:#cfd6dd;--acc:#0b5c8c;--accink:#fff;--ok:#1a7f4b;--ko:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12181e;--card:#1b242c;--ink:#e8edf1;--mute:#98a4af;--line:#34414c;--acc:#4aa3d8;--accink:#07131c;--ok:#5fcf93;--ko:#ff8a80}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+header{display:flex;justify-content:space-between;align-items:baseline;padding:14px 16px 4px}
+h1{font-size:26px;margin:0}
+#cnt{color:var(--mute);font-size:15px}
+main{padding:8px 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px}.row>*{flex:1}
+button{font:inherit;font-weight:600;border:1px solid var(--acc);background:var(--acc);color:var(--accink);border-radius:10px;padding:12px;cursor:pointer}
+button.sec{background:var(--card);color:var(--ink);border-color:var(--line)}
+button.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+button.ko{background:var(--ko);border-color:var(--ko);color:#fff}
+button.txt{background:none;border:none;color:var(--ko);padding:8px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+label{display:block;font-size:14px;color:var(--mute);margin:10px 0 4px}
+:focus-visible{outline:3px solid var(--acc);outline-offset:1px}
+.hint{color:var(--mute);font-size:14px;margin:8px 0 0}
+.msg{font-size:15px;margin:8px 0 0}.msg.err{color:var(--ko)}.msg.good{color:var(--ok)}
+video{width:100%;border-radius:12px;background:#000;max-height:50vh;margin-top:10px}
+.empty{text-align:center;color:var(--mute);padding:36px 12px;font-size:18px}
+.item{display:flex;gap:12px;align-items:center;cursor:pointer}
+.th{width:56px;height:56px;border-radius:10px;background:var(--bg);border:1px solid var(--line);object-fit:cover;flex:none;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:12px}
+.grow{flex:1;min-width:0}.nm{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub{color:var(--mute);font-size:14px}
+.q{font-size:22px;font-weight:800}.q.low{color:var(--ko)}
+.big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--bg)}
+.qbig{font-size:48px;font-weight:800;text-align:center;margin:6px 0}
+.mv{display:flex;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.mv:last-child{border:none}
+.in{color:var(--ok);font-weight:700}.out{color:var(--ko);font-weight:700}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;background:none;border:none;border-top:4px solid transparent;border-radius:0;color:var(--mute);padding:16px 4px;font-size:17px}
+nav button.on{color:var(--acc);border-top-color:var(--acc)}
+.hide{display:none!important}
+</style>
+</head>
+<body>
+<header><h1>Stock PDR</h1><span id="cnt"></span></header>
+<main>
+<section id="v-scan">
+ <div class="card">
+  <div class="row">
+   <button id="bCam">Scanner avec la caméra</button>
+   <button class="sec" id="bPhoto">Scanner via photo</button>
+  </div>
+  <input type="file" id="fPhoto" accept="image/*" capture="environment" class="hide">
+  <video id="vid" class="hide" playsinline muted></video>
+  <button class="sec hide" id="bStop" style="width:100%;margin-top:8px">Arrêter la caméra</button>
+  <p class="hint">Ou saisir / scanner avec une douchette</p>
+  <div class="row" style="align-items:stretch">
+   <input id="man" placeholder="Code-barres ou référence" autocomplete="off" autocapitalize="characters" style="flex:3">
+   <button class="sec" id="bOk">Valider</button>
+  </div>
+  <p class="msg" id="msg"></p>
+ </div>
+ <div id="zone"><div class="empty">Scannez le carton d’une pièce pour entrer ou sortir du stock.</div></div>
+</section>
+<section id="v-stock" class="hide">
+ <input id="q" type="search" placeholder="Rechercher (nom, code, emplacement)" style="margin-bottom:12px">
+ <div id="list"></div>
+ <button class="sec" id="bExp" style="width:100%">Exporter le stock (CSV)</button>
+</section>
+<section id="v-mov" class="hide">
+ <div class="card" id="mlist"></div>
+ <div class="row"><button class="sec" id="bExpM">Exporter (CSV)</button><button class="sec" id="bSave">Sauvegarde complète</button></div>
+ <p class="hint">Les données sont enregistrées sur cet appareil. Faites une sauvegarde de temps en temps.</p>
+</section>
+</main>
+<nav><button data-t="scan" class="on">Scanner</button><button data-t="stock">Stock</button><button data-t="mov">Mouvements</button></nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script>
+var $=function(i){return document.getElementById(i)};
+var items={},moves=[];
+try{items=JSON.parse(localStorage.getItem('pdr_items')||'{}');moves=JSON.parse(localStorage.getItem('pdr_moves')||'[]')}catch(e){}
+function save(){try{localStorage.setItem('pdr_items',JSON.stringify(items));localStorage.setItem('pdr_moves',JSON.stringify(moves))}catch(e){setMsg('Mémoire pleine : exportez puis supprimez des photos.',1)}}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function setMsg(t,e,g){var m=$('msg');m.textContent=t||'';m.className='msg'+(e?' err':g?' good':'')}
+function now(){return new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}
+
+/* Onglets */
+document.querySelectorAll('nav button').forEach(function(b){b.onclick=function(){tab(b.dataset.t)}});
+function tab(t){
+ ['scan','stock','mov'].forEach(function(x){$('v-'+x).classList.toggle('hide',x!==t)});
+ document.querySelectorAll('nav button').forEach(function(b){b.classList.toggle('on',b.dataset.t===t)});
+ if(t!=='scan')stopCam();
+ if(t==='stock'){openGroup=null;renderList()}if(t==='mov')renderMoves();
+ count();
+}
+function count(){var n=Object.keys(items).length;$('cnt').textContent=n+' réf.'}
+
+/* Scan caméra */
+var stream=null,loop=null,zx=null,det=null;
+function stopCam(){
+ if(loop){clearInterval(loop);loop=null}
+ if(zx){try{zx.reset()}catch(e){}zx=null}
+ if(stream){stream.getTracks().forEach(function(t){t.stop()});stream=null}
+ $('vid').srcObject=null;$('vid').classList.add('hide');$('bStop').classList.add('hide');
+}
+$('bStop').onclick=function(){stopCam();setMsg('')};
+$('bCam').onclick=async function(){
+ stopCam();setMsg('');
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){setMsg('Caméra indisponible ici. Ouvrez l’appli en https:// ou saisissez le code.',1);return}
+ $('vid').classList.remove('hide');$('bStop').classList.remove('hide');
+ try{
+  if('BarcodeDetector' in window){
+   det=new BarcodeDetector({formats:['code_128','code_39','ean_13','ean_8','upc_a','qr_code']});
+   stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280}}});
+   var v=$('vid');v.srcObject=stream;await v.play();
+   setMsg('Placez le code dans le cadre…');
+   loop=setInterval(async function(){
+    try{var r=await det.detect(v);if(r.length){onCode(r[0].rawValue)}}catch(e){}
+   },250);
+  }else if(window.ZXing){
+   zx=new ZXing.BrowserMultiFormatReader();
+   setMsg('Placez le code dans le cadre…');
+   zx.decodeFromVideoDevice(null,'vid',function(res){if(res)onCode(res.getText())});
+  }else{throw new Error('no')}
+ }catch(e){
+  stopCam();
+  setMsg('Accès caméra refusé ou impossible (il faut https://). Utilisez « Scanner via photo » ou saisissez le code.',1);
+ }
+};
+
+/* Scan via photo */
+$('bPhoto').onclick=function(){$('fPhoto').click()};
+$('fPhoto').onchange=async function(){
+ var f=this.files[0];this.value='';if(!f)return;
+ setMsg('Analyse de la photo…');
+ var url=URL.createObjectURL(f),code=null;
+ try{
+  var img=new Image();img.src=url;await img.decode();
+  if('BarcodeDetector' in window){
+   var d=new BarcodeDetector({formats:['code_128','code_39','ean_13','ean_8','upc_a','qr_code']});
+   var r=await d.detect(img);if(r.length)code=r[0].rawValue;
+  }
+  if(!code&&window.ZXing){
+   var rd=new ZXing.BrowserMultiFormatReader();
+   var res=await rd.decodeFromImageUrl(url);code=res.getText();
+  }
+ }catch(e){}
+ URL.revokeObjectURL(url);
+ if(code)onCode(code);else setMsg('Code non détecté : rapprochez-vous, évitez les reflets, ou saisissez le code.',1);
+};
+
+/* Saisie manuelle / douchette */
+$('bOk').onclick=function(){var c=$('man').value;if(c.trim())onCode(c)};
+$('man').onkeydown=function(e){if(e.key==='Enter'){e.preventDefault();$('bOk').click()}};
+
+function onCode(raw){
+ var c=String(raw).trim().toUpperCase();if(!c)return;
+ stopCam();if(navigator.vibrate)try{navigator.vibrate(80)}catch(e){}
+ $('man').value='';setMsg('Code lu : '+c,0,1);
+ tab('scan');
+ if(items[c])fiche(c);else form(c,true);
+ window.scrollTo(0,0);
+}
+
+/* Photo redimensionnée */
+function shrink(file){return new Promise(function(ok){
+ var r=new FileReader();r.onload=function(){var i=new Image();i.onload=function(){
+  var s=Math.min(1,480/Math.max(i.width,i.height)),c=document.createElement('canvas');
+  c.width=Math.round(i.width*s);c.height=Math.round(i.height*s);
+  c.getContext('2d').drawImage(i,0,0,c.width,c.height);ok(c.toDataURL('image/jpeg',0.7))};i.src=r.result};r.readAsDataURL(file)})}
+
+/* Formulaire */
+var tmpPhoto='';
+function form(code,isNew){
+ var it=items[code]||{code:code,nom:'',type:'',empl:'',qte:0,note:'',photo:''};
+ tmpPhoto=it.photo||'';
+ $('zone').innerHTML='<div class="card"><h2 style="margin:0 0 4px;font-size:19px">'+(isNew?'Nouvel article':'Modifier l’article')+'</h2>'+
+ '<div class="sub">Code : <b>'+esc(code)+'</b></div>'+
+ '<label>Nom de la pièce *</label><input id="fn" value="'+esc(it.nom)+'">'+
+ '<label>Type / catégorie</label><input id="ft" value="'+esc(it.type)+'" placeholder="Ex. Courroie, Filtre, Roulement">'+
+ '<label>Emplacement</label><input id="fe" value="'+esc(it.empl)+'" placeholder="Ex. Étagère A2">'+
+ '<label>'+(isNew?'Quantité en stock':'Quantité en stock (correction)')+'</label><input id="fq" type="number" min="0" inputmode="numeric" value="'+it.qte+'">'+
+ '<label>Remarques</label><textarea id="fr" rows="2">'+esc(it.note)+'</textarea>'+
+ '<label>Photo du produit</label><img id="fp" class="big'+(tmpPhoto?'':' hide')+'" src="'+tmpPhoto+'" alt="">'+
+ '<input type="file" id="ff" accept="image/*" capture="environment" class="hide">'+
+ '<button class="sec" id="fb" style="width:100%;margin-top:8px">Prendre / choisir une photo</button>'+
+ '<div class="row" style="margin-top:14px"><button class="sec" id="fc">Annuler</button><button id="fs">Enregistrer</button></div>'+
+ '<p class="msg err" id="fm"></p></div>';
+ $('fb').onclick=function(){$('ff').click()};
+ $('ff').onchange=async function(){var f=this.files[0];if(!f)return;tmpPhoto=await shrink(f);$('fp').src=tmpPhoto;$('fp').classList.remove('hide')};
+ $('fc').onclick=function(){isNew?clearZone():fiche(code)};
+ $('fs').onclick=function(){
+  var n=$('fn').value.trim();if(!n){$('fm').textContent='Le nom est obligatoire.';return}
+  var q=Math.max(0,parseInt($('fq').value,10)||0),old=items[code];
+  items[code]={code:code,nom:n,type:$('ft').value.trim(),empl:$('fe').value.trim(),qte:q,note:$('fr').value.trim(),photo:tmpPhoto,maj:now()};
+  if(isNew){if(q>0)moves.unshift({t:now(),code:code,nom:n,sens:'Entrée',qte:q,apres:q,txt:'Création'})}
+  else if(old.qte!==q){moves.unshift({t:now(),code:code,nom:n,sens:q>old.qte?'Entrée':'Sortie',qte:Math.abs(q-old.qte),apres:q,txt:'Correction'})}
+  save();count();fiche(code);
+ };
+}
+function clearZone(){$('zone').innerHTML='<div class="empty">Scannez le carton d’une pièce pour entrer ou sortir du stock.</div>'}
+
+/* Fiche */
+function fiche(code){
+ var it=items[code];if(!it){clearZone();return}
+ $('zone').innerHTML='<div class="card">'+
+ (it.photo?'<img class="big" src="'+it.photo+'" alt="">':'')+
+ '<h2 style="margin:10px 0 2px;font-size:22px">'+esc(it.nom)+'</h2>'+
+ '<div class="sub">Code : <b>'+esc(it.code)+'</b>'+(it.type?' · '+esc(it.type):'')+'</div>'+
+ (it.empl?'<div class="sub">Emplacement : '+esc(it.empl)+'</div>':'')+
+ (it.note?'<div class="sub">'+esc(it.note)+'</div>':'')+
+ '<div class="qbig" id="qb">'+it.qte+'</div><div class="sub" style="text-align:center">en stock</div>'+
+ '<label>Quantité du mouvement</label><input id="mq" type="number" min="1" value="1" inputmode="numeric">'+
+ '<div class="row" style="margin-top:12px"><button class="ok" id="bIn">Entrée +</button><button class="ko" id="bOut">Sortie −</button></div>'+
+ '<p class="msg" id="fm"></p>'+
+ '<div class="row" style="margin-top:6px"><button class="sec" id="bEd">Modifier</button><button class="txt" id="bDel">Supprimer</button></div></div>';
+ function mv(sens){
+  var n=parseInt($('mq').value,10);if(!(n>0)){$('fm').className='msg err';$('fm').textContent='Entrez une quantité valide.';return}
+  if(sens==='Sortie'&&n>it.qte){$('fm').className='msg err';$('fm').textContent='Stock insuffisant (reste '+it.qte+').';return}
+  it.qte+=sens==='Entrée'?n:-n;it.maj=now();
+  moves.unshift({t:now(),code:it.code,nom:it.nom,sens:sens,qte:n,apres:it.qte,txt:''});
+  save();$('qb').textContent=it.qte;$('fm').className='msg good';$('fm').textContent=sens+' enregistrée : '+n;
+ }
+ $('bIn').onclick=function(){mv('Entrée')};$('bOut').onclick=function(){mv('Sortie')};
+ $('bEd').onclick=function(){form(code,false)};
+ $('bDel').onclick=function(){if(confirm('Supprimer cet article ?')){delete items[code];save();count();clearZone()}};
+}
+
+/* Stock */
+var openGroup=null;
+$('q').oninput=function(){openGroup=null;renderList()};
+function gkey(n){return String(n||'').trim().toLowerCase().replace(/\s+/g,' ')}
+function groups(){
+ var g={};
+ Object.values(items).forEach(function(i){
+  var k=gkey(i.nom);if(!g[k])g[k]={k:k,nom:i.nom,list:[],tot:0,photo:''};
+  var o=g[k];o.list.push(i);o.tot+=i.qte;if(!o.photo&&i.photo)o.photo=i.photo;
+ });
+ return Object.values(g);
+}
+function thumb(p){return p?'<img class="th" src="'+p+'" alt="">':'<div class="th">Photo</div>'}
+function renderList(){
+ var box=$('list'),all=groups(),g=null;
+ if(openGroup){g=all.filter(function(x){return x.k===openGroup})[0]||null;if(!g)openGroup=null}
+ if(g){
+  g.list.sort(function(x,y){return x.code.localeCompare(y.code)});
+  box.innerHTML='<button class="sec" id="gb" style="width:100%;margin-bottom:12px">← Retour à la liste</button>'+
+  '<div class="card"><h2 style="margin:0;font-size:22px">'+esc(g.nom)+'</h2><div class="qbig">'+g.tot+'</div><div class="sub" style="text-align:center">en stock au total · '+g.list.length+' code'+(g.list.length>1?'s':'')+'</div></div>'+
+  g.list.map(function(i){
+   return '<div class="card item" data-c="'+esc(i.code)+'">'+thumb(i.photo)+'<div class="grow"><div class="nm">'+esc(i.code)+'</div><div class="sub">'+
+   (i.empl?'Emplacement : '+esc(i.empl):'Emplacement non renseigné')+(i.type?' · '+esc(i.type):'')+'</div>'+(i.note?'<div class="sub">'+esc(i.note)+'</div>':'')+
+   '</div><div class="q'+(i.qte===0?' low':'')+'">'+i.qte+'</div></div>'}).join('');
+  $('gb').onclick=function(){openGroup=null;renderList()};
+  document.querySelectorAll('#list .item').forEach(function(e){e.onclick=function(){tab('scan');fiche(e.dataset.c);window.scrollTo(0,0)}});
+  return;
+ }
+ var s=$('q').value.trim().toLowerCase();
+ var a=all.filter(function(x){return !s||x.list.some(function(i){return (i.nom+' '+i.code+' '+i.empl+' '+i.type).toLowerCase().indexOf(s)>-1})});
+ a.sort(function(x,y){return x.nom.localeCompare(y.nom)});
+ box.innerHTML=a.length?a.map(function(x){
+  return '<div class="card item" data-g="'+esc(x.k)+'">'+thumb(x.photo)+'<div class="grow"><div class="nm">'+esc(x.nom)+'</div><div class="sub">'+x.list.length+' code'+(x.list.length>1?'s':'')+(x.list.length===1?' · '+esc(x.list[0].code):'')+'</div></div><div style="text-align:right"><div class="q'+(x.tot===0?' low':'')+'">'+x.tot+'</div><div class="sub">total</div></div></div>'}).join(''):
+  '<div class="empty">'+(Object.keys(items).length?'Aucun résultat.':'Aucun article. Scannez un code pour créer le premier.')+'</div>';
+ document.querySelectorAll('#list .item').forEach(function(e){e.onclick=function(){openGroup=e.dataset.g;renderList();window.scrollTo(0,0)}});
+}
+
+/* Mouvements */
+function renderMoves(){
+ $('mlist').innerHTML=moves.length?moves.slice(0,200).map(function(m){
+  return '<div class="mv"><div class="grow"><div class="nm">'+esc(m.nom)+'</div><div class="sub">'+esc(m.t)+' · '+esc(m.code)+(m.txt?' · '+esc(m.txt):'')+'</div></div><div style="text-align:right"><div class="'+(m.sens==='Entrée'?'in':'out')+'">'+(m.sens==='Entrée'?'+':'−')+m.qte+'</div><div class="sub">reste '+m.apres+'</div></div></div>'}).join(''):
+  '<div class="empty">Aucun mouvement pour l’instant.</div>';
+}
+
+/* Exports */
+function dl(name,text,type){var a=document.createElement('a');a.href='data:'+type+';charset=utf-8,'+encodeURIComponent(text);a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function csv(rows){return '\ufeff'+rows.map(function(r){return r.map(function(c){return '"'+String(c==null?'':c).replace(/"/g,'""')+'"'}).join(';')}).join('\n')}
+$('bExp').onclick=function(){dl('stock_pdr.csv',csv([['Code','Nom','Type','Emplacement','Quantité','Remarques']].concat(Object.values(items).map(function(i){return [i.code,i.nom,i.type,i.empl,i.qte,i.note]}))),'text/csv')};
+$('bExpM').onclick=function(){dl('mouvements_pdr.csv',csv([['Date','Code','Nom','Sens','Quantité','Reste','Note']].concat(moves.map(function(m){return [m.t,m.code,m.nom,m.sens,m.qte,m.apres,m.txt]}))),'text/csv')};
+$('bSave').onclick=function(){dl('sauvegarde_stock_pdr.json',JSON.stringify({items:items,moves:moves}),'application/json')};
+count();
+</script>
+</body>
+</html>
